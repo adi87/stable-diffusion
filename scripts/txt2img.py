@@ -155,6 +155,7 @@ def get_arguments():
 
     parser.add_argument(
         "--prompt",
+        required=True,
         type=str,
         nargs="?",
         default="a painting of a virus monster playing guitar",
@@ -284,79 +285,92 @@ def get_arguments():
     )
     return parser.parse_args()
 
+class Txt2Img():
+
+    def __init__(self, opt):
+        if opt.laion400m:
+            print("Falling back to LAION 400M model...")
+            opt.config = "configs/latent-diffusion/txt2img-1p4B-eval.yaml"
+            opt.ckpt = "models/ldm/text2img-large/model.ckpt"
+            opt.outdir = "outputs/txt2img-samples-laion400m"
+
+        self.opt = opt
+
+        seed_everything(opt.seed)
+        config = OmegaConf.load(f"{opt.config}")
+        self.model = load_model_from_config(config, f"{opt.ckpt}")
+
+        device = torch.device(
+            "cuda") if torch.cuda.is_available() else torch.device("cpu")
+        self.model = self.model.to(device)
+
+        self.sampler = PLMSSampler(
+            self.model) if opt.plms else DDIMSampler(self.model)
+
+        os.makedirs(opt.outdir, exist_ok=True)
+        self.outpath = opt.outdir
+
+        print("Creating invisible watermark encoder (see https://github.com/ShieldMnt/invisible-watermark)...")
+        wm = "StableDiffusionV1"
+        self.wm_encoder = WatermarkEncoder()
+        self.wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
+
+        self.batch_size = opt.n_samples
+        self.n_rows = opt.n_rows if opt.n_rows > 0 else self.batch_size
+        # if not opt.from_file:
+        #     prompt = opt.prompt
+        #     assert prompt is not None
+        #     data = [self.batch_size * [prompt]]
+        # else:
+        #     print(f"reading prompts from {opt.from_file}")
+        #     with open(opt.from_file, "r") as f:
+        #         data = f.read().splitlines()
+        #         data = list(chunk(data, self.batch_size))
+
+        self.sample_path = os.path.join(self.outpath, "samples")
+        os.makedirs(self.sample_path, exist_ok=True)
+        self.base_count = len(os.listdir(self.sample_path))
+        self.grid_count = len(os.listdir(self.outpath)) - 1
+
+        self.start_code = None
+        if opt.fixed_code:
+            self.start_code = torch.randn(
+                [opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
+
+        self.precision_scope = autocast if opt.precision == "autocast" else nullcontext
+
+    def generate_samples(self, prompt):
+        data = [self.batch_size * [prompt]]
+        with torch.no_grad():
+            with self.precision_scope("cuda"):
+                with self.model.ema_scope():
+                    tic = time.time()
+                    all_samples = list()
+                    for n in trange(self.opt.n_iter, desc="Sampling"):
+                        for prompts in tqdm(data, desc="data"):
+                            x_checked_image_torch = run_prompts(prompts, self.opt, self.model, self.batch_size,
+                                                                self.sampler, self.start_code, self.wm_encoder, self.sample_path, self.base_count)
+
+                            if not self.opt.skip_grid:
+                                all_samples.append(x_checked_image_torch)
+
+                    if not self.opt.skip_grid:
+                        make_image_grid(all_samples, self.n_rows,
+                                        self.wm_encoder, self.outpath, self.grid_count)
+                        grid_count += 1
+
+                    toc = time.time()
+
+        return self.sample_path
+
+
+
 
 def main():
     opt = get_arguments()
 
-    if opt.laion400m:
-        print("Falling back to LAION 400M model...")
-        opt.config = "configs/latent-diffusion/txt2img-1p4B-eval.yaml"
-        opt.ckpt = "models/ldm/text2img-large/model.ckpt"
-        opt.outdir = "outputs/txt2img-samples-laion400m"
-
-    seed_everything(opt.seed)
-
-    config = OmegaConf.load(f"{opt.config}")
-    model = load_model_from_config(config, f"{opt.ckpt}")
-
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
-
-    if opt.plms:
-        sampler = PLMSSampler(model)
-    else:
-        sampler = DDIMSampler(model)
-
-    os.makedirs(opt.outdir, exist_ok=True)
-    outpath = opt.outdir
-
-    print("Creating invisible watermark encoder (see https://github.com/ShieldMnt/invisible-watermark)...")
-    wm = "StableDiffusionV1"
-    wm_encoder = WatermarkEncoder()
-    wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
-
-    batch_size = opt.n_samples
-    n_rows = opt.n_rows if opt.n_rows > 0 else batch_size
-    if not opt.from_file:
-        prompt = opt.prompt
-        assert prompt is not None
-        data = [batch_size * [prompt]]
-
-    else:
-        print(f"reading prompts from {opt.from_file}")
-        with open(opt.from_file, "r") as f:
-            data = f.read().splitlines()
-            data = list(chunk(data, batch_size))
-
-    sample_path = os.path.join(outpath, "samples")
-    os.makedirs(sample_path, exist_ok=True)
-    base_count = len(os.listdir(sample_path))
-    grid_count = len(os.listdir(outpath)) - 1
-
-    start_code = None
-    if opt.fixed_code:
-        start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
-
-    precision_scope = autocast if opt.precision=="autocast" else nullcontext
-    with torch.no_grad():
-        with precision_scope("cuda"):
-            with model.ema_scope():
-                tic = time.time()
-                all_samples = list()
-                for n in trange(opt.n_iter, desc="Sampling"):
-                    for prompts in tqdm(data, desc="data"):
-                        x_checked_image_torch = run_prompts(prompts, opt, model, batch_size,
-                                    sampler, start_code, wm_encoder, sample_path, base_count)
-
-                        if not opt.skip_grid:
-                            all_samples.append(x_checked_image_torch)
-
-                if not opt.skip_grid:
-                    make_image_grid(all_samples, n_rows,
-                              wm_encoder, outpath, grid_count)
-                    grid_count += 1
-
-                toc = time.time()
+    txt2img = Txt2Img(opt)
+    outpath = txt2img.generate_samples(opt.prompt)
 
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
           f" \nEnjoy.")
