@@ -107,7 +107,7 @@ def run_prompts(prompts, opt, model, batch_size, sampler, start_code, wm_encoder
     shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
     samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                         conditioning=c,
-                                        batch_size=opt.n_samples,
+                                        batch_size=batch_size,
                                         shape=shape,
                                         verbose=False,
                                         unconditional_guidance_scale=opt.scale,
@@ -317,7 +317,6 @@ class Txt2Img():
         self.wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
 
         self.batch_size = opt.n_samples
-        self.n_rows = opt.n_rows if opt.n_rows > 0 else self.batch_size
         # if not opt.from_file:
         #     prompt = opt.prompt
         #     assert prompt is not None
@@ -338,6 +337,7 @@ class Txt2Img():
     def generate_samples(self, prompt, batch_size):
         num_samples = batch_size or self.batch_size
         data = [num_samples * [prompt]]
+        n_rows = self.opt.n_rows if self.opt.n_rows > 0 else num_samples
         sample_path = os.path.join(self.outpath, f"samples_{int(time.time())}")
         os.makedirs(sample_path, exist_ok=True)
         base_count = len(os.listdir(sample_path))
@@ -356,7 +356,7 @@ class Txt2Img():
                                 all_samples.append(x_checked_image_torch)
 
                     if not self.opt.skip_grid:
-                        make_image_grid(all_samples, self.n_rows,
+                        make_image_grid(all_samples, n_rows,
                                         self.wm_encoder, self.outpath, grid_count)
                         grid_count += 1
 
