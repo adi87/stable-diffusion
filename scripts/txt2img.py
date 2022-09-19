@@ -372,7 +372,7 @@ txt2img = Txt2Img(opt)
 
 @app.route('/favicon.ico')
 def favicon():
-    return None
+    return ""
 
 
 @app.route("/<prompt>")
