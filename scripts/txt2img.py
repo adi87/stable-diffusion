@@ -94,7 +94,7 @@ def check_safety(x_image):
     return x_checked_image, has_nsfw_concept
 
 
-def run_prompts(prompts, opt, model, batch_size, sampler, start_code, wm_encoder, sample_path):
+def run_prompts(prompts, opt, model, batch_size, sampler, start_code, wm_encoder, sample_path, base_count):
     uc = None
     if opt.scale != 1.0:
         uc = model.get_learned_conditioning(
@@ -346,7 +346,7 @@ def main():
                 for n in trange(opt.n_iter, desc="Sampling"):
                     for prompts in tqdm(data, desc="data"):
                         x_checked_image_torch = run_prompts(prompts, opt, model, batch_size,
-                                    sampler, start_code, wm_encoder, sample_path)
+                                    sampler, start_code, wm_encoder, sample_path, base_count)
 
                         if not opt.skip_grid:
                             all_samples.append(x_checked_image_torch)
