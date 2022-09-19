@@ -1,5 +1,6 @@
 import argparse, os, sys, glob
 from flask import Flask
+import base64
 import cv2
 import torch
 import numpy as np
@@ -327,11 +328,6 @@ class Txt2Img():
         #         data = f.read().splitlines()
         #         data = list(chunk(data, self.batch_size))
 
-        self.sample_path = os.path.join(self.outpath, "samples")
-        os.makedirs(self.sample_path, exist_ok=True)
-        self.base_count = len(os.listdir(self.sample_path))
-        self.grid_count = len(os.listdir(self.outpath)) - 1
-
         self.start_code = None
         if opt.fixed_code:
             self.start_code = torch.randn(
@@ -341,6 +337,10 @@ class Txt2Img():
 
     def generate_samples(self, prompt):
         data = [self.batch_size * [prompt]]
+        sample_path = os.path.join(self.outpath, f"samples_{int(time.time())}")
+        os.makedirs(sample_path, exist_ok=True)
+        base_count = len(os.listdir(sample_path))
+        grid_count = len(os.listdir(self.outpath)) - 1
         with torch.no_grad():
             with self.precision_scope("cuda"):
                 with self.model.ema_scope():
@@ -349,20 +349,20 @@ class Txt2Img():
                     for n in trange(self.opt.n_iter, desc="Sampling"):
                         for prompts in tqdm(data, desc="data"):
                             x_checked_image_torch = run_prompts(prompts, self.opt, self.model, self.batch_size,
-                                                                self.sampler, self.start_code, self.wm_encoder, self.sample_path, self.base_count)
+                                                                self.sampler, self.start_code, self.wm_encoder, sample_path, base_count)
 
                             if not self.opt.skip_grid:
                                 all_samples.append(x_checked_image_torch)
 
                     if not self.opt.skip_grid:
                         make_image_grid(all_samples, self.n_rows,
-                                        self.wm_encoder, self.outpath, self.grid_count)
-                        self.grid_count += 1
+                                        self.wm_encoder, self.outpath, grid_count)
+                        grid_count += 1
 
                     toc = time.time()
                     print(f'Took {toc - tic} seconds')
 
-        return self.sample_path
+        return sample_path
 
 
 app = Flask(__name__)
@@ -378,8 +378,37 @@ def favicon():
 @app.route("/<prompt>")
 def prompt_generator(prompt):
     print(f'Generating samples for prompt: "{prompt}"')
-    outpath = txt2img.generate_samples(prompt)
-    return f"Your samples are ready and waiting for you here: \n{outpath}"
+    sample_path = txt2img.generate_samples(prompt)
+    all_files = os.listdir(sample_path)
+    image_files = list(filter(lambda x: x.endswith('.png') or x.endswith(
+        '.jpg') or x.endswith('.jpeg') or x.endswith('.gif'), all_files))
+    encoded_images = []
+    for image_file_path in image_files:
+        with open(f"{sample_path}/{image_file_path}", "rb") as image_file:
+            encoded_images.append(base64.b64encode(image_file.read()))
+    html_body = f"""
+        <html>
+        <head>
+            <style>
+                .myGallery {{
+                    display: grid;
+                    grid-gap: 10px;
+                    grid-template-columns: repeat(auto-fit, minmax(512px, 1fr));
+                }}
+            
+                .myGallery img {{
+                    width: 100%;
+                }}
+            </style>
+        </head>
+        <body>
+                <div class="myGallery">
+                    {"".join(list(map(lambda x:f"<img src='data:image/png;base64, {x.decode('utf-8')}' />", encoded_images)))}
+                </div>
+        </body>
+    </html>
+    """
+    return html_body
 
 
 def main():
