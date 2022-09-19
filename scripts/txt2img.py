@@ -1,4 +1,5 @@
 import argparse, os, sys, glob
+from flask import Flask
 import cv2
 import torch
 import numpy as np
@@ -365,16 +366,23 @@ class Txt2Img():
         return self.sample_path
 
 
+app = Flask(__name__)
+opt = get_arguments()
+txt2img = Txt2Img(opt)
+
+
+@app.route("/<prompt>")
+def prompt_generator(prompt):
+    outpath = txt2img.generate_samples(prompt)
+    return f"Your samples are ready and waiting for you here: \n{outpath}"
 
 
 def main():
-    opt = get_arguments()
+    app.run(debug=True)
+    # outpath = txt2img.generate_samples(opt.prompt)
 
-    txt2img = Txt2Img(opt)
-    outpath = txt2img.generate_samples(opt.prompt)
-
-    print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
-          f" \nEnjoy.")
+    # print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
+    #       f" \nEnjoy.")
 
 
 if __name__ == "__main__":
