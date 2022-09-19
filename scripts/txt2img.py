@@ -372,12 +372,13 @@ txt2img = Txt2Img(opt)
 
 @app.route("/<prompt>")
 def prompt_generator(prompt):
+    print(f'Generating samples for prompt: "{prompt}"')
     outpath = txt2img.generate_samples(prompt)
     return f"Your samples are ready and waiting for you here: \n{outpath}"
 
 
 def main():
-    app.run()
+    app.run(host='0.0.0.0')
     # outpath = txt2img.generate_samples(opt.prompt)
 
     # print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
