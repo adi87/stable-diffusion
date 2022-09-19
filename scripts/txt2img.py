@@ -156,7 +156,6 @@ def get_arguments():
 
     parser.add_argument(
         "--prompt",
-        required=True,
         type=str,
         nargs="?",
         default="a painting of a virus monster playing guitar",
