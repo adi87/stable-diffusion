@@ -374,6 +374,9 @@ txt2img = Txt2Img(opt)
 def favicon():
     return ""
 
+@app.route('/')
+def ping():
+    return "Stable Diffusion"
 
 @app.route("/<prompt>")
 def prompt_generator(prompt):
