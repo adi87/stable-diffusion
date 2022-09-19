@@ -377,7 +377,7 @@ def prompt_generator(prompt):
 
 
 def main():
-    app.run(debug=True)
+    app.run()
     # outpath = txt2img.generate_samples(opt.prompt)
 
     # print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
