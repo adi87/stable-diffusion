@@ -387,9 +387,12 @@ def prompt_generator(prompt):
         with open(f"{sample_path}/{image_file_path}", "rb") as image_file:
             encoded_images.append(base64.b64encode(image_file.read()))
     html_body = f"""
-        <html>
+    <html>
         <head>
             <style>
+                body {{
+                    background: #181a1b;
+                }}
                 .myGallery {{
                     display: grid;
                     grid-gap: 10px;
@@ -399,15 +402,25 @@ def prompt_generator(prompt):
                 .myGallery img {{
                     width: 100%;
                 }}
+
+                .prompt {{
+                    padding: 20px;
+                    color: white;
+                    text-align: center;
+                    font-family: Helvetica
+                }}
             </style>
         </head>
         <body>
+                <div class="prompt">
+                    <h1>{prompt}</h1>
+                </div>
                 <div class="myGallery">
                     {"".join(list(map(lambda x:f"<img src='data:image/png;base64, {x.decode('utf-8')}' />", encoded_images)))}
                 </div>
         </body>
     </html>
-    """
+        """
     return html_body
 
 
