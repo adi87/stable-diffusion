@@ -1,5 +1,5 @@
 import argparse, os, sys, glob
-from flask import Flask
+from flask import Flask, request
 import base64
 import cv2
 import torch
@@ -335,8 +335,9 @@ class Txt2Img():
 
         self.precision_scope = autocast if opt.precision == "autocast" else nullcontext
 
-    def generate_samples(self, prompt):
-        data = [self.batch_size * [prompt]]
+    def generate_samples(self, prompt, batch_size):
+        num_samples = batch_size or self.batch_size
+        data = [num_samples * [prompt]]
         sample_path = os.path.join(self.outpath, f"samples_{int(time.time())}")
         os.makedirs(sample_path, exist_ok=True)
         base_count = len(os.listdir(sample_path))
@@ -348,7 +349,7 @@ class Txt2Img():
                     all_samples = list()
                     for n in trange(self.opt.n_iter, desc="Sampling"):
                         for prompts in tqdm(data, desc="data"):
-                            x_checked_image_torch = run_prompts(prompts, self.opt, self.model, self.batch_size,
+                            x_checked_image_torch = run_prompts(prompts, self.opt, self.model, num_samples,
                                                                 self.sampler, self.start_code, self.wm_encoder, sample_path, base_count)
 
                             if not self.opt.skip_grid:
@@ -381,7 +382,8 @@ def ping():
 @app.route("/<prompt>")
 def prompt_generator(prompt):
     print(f'Generating samples for prompt: "{prompt}"')
-    sample_path = txt2img.generate_samples(prompt)
+    batch_size = request.args.get('batch_size', default = 3, type = int)
+    sample_path = txt2img.generate_samples(prompt, batch_size)
     all_files = os.listdir(sample_path)
     image_files = list(filter(lambda x: x.endswith('.png') or x.endswith(
         '.jpg') or x.endswith('.jpeg') or x.endswith('.gif'), all_files))
