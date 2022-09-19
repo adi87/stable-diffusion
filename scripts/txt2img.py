@@ -357,9 +357,10 @@ class Txt2Img():
                     if not self.opt.skip_grid:
                         make_image_grid(all_samples, self.n_rows,
                                         self.wm_encoder, self.outpath, self.grid_count)
-                        grid_count += 1
+                        self.grid_count += 1
 
                     toc = time.time()
+                    print(f'Took {toc - tic} seconds')
 
         return self.sample_path
 
