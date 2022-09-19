@@ -29,6 +29,7 @@ safety_model_id = "CompVis/stable-diffusion-safety-checker"
 safety_feature_extractor = AutoFeatureExtractor.from_pretrained(safety_model_id)
 safety_checker = StableDiffusionSafetyChecker.from_pretrained(safety_model_id)
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def chunk(it, size):
     it = iter(it)
@@ -167,7 +168,7 @@ def get_arguments():
         type=str,
         nargs="?",
         help="dir to write results to",
-        default="outputs/txt2img-samples"
+        default=dir_path + "/outputs/txt2img-samples"
     )
     parser.add_argument(
         "--skip_grid",
@@ -262,13 +263,13 @@ def get_arguments():
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/stable-diffusion/v1-inference.yaml",
+        default=dir_path + "/configs/stable-diffusion/v1-inference.yaml",
         help="path to config which constructs model",
     )
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="models/ldm/stable-diffusion-v1/model.ckpt",
+        default=dir_path + "/models/ldm/stable-diffusion-v1/model.ckpt",
         help="path to checkpoint of model",
     )
     parser.add_argument(
@@ -291,9 +292,9 @@ class Txt2Img():
     def __init__(self, opt):
         if opt.laion400m:
             print("Falling back to LAION 400M model...")
-            opt.config = "configs/latent-diffusion/txt2img-1p4B-eval.yaml"
-            opt.ckpt = "models/ldm/text2img-large/model.ckpt"
-            opt.outdir = "outputs/txt2img-samples-laion400m"
+            opt.config = dir_path + "/configs/latent-diffusion/txt2img-1p4B-eval.yaml"
+            opt.ckpt = dir_path + "/models/ldm/text2img-large/model.ckpt"
+            opt.outdir = dir_path + "/outputs/txt2img-samples-laion400m"
 
         self.opt = opt
 
