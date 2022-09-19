@@ -370,6 +370,11 @@ opt = get_arguments()
 txt2img = Txt2Img(opt)
 
 
+@app.route('/favicon.ico')
+def favicon():
+    return None
+
+
 @app.route("/<prompt>")
 def prompt_generator(prompt):
     print(f'Generating samples for prompt: "{prompt}"')
