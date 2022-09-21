@@ -98,7 +98,7 @@ def check_safety(x_image):
     return x_checked_image, has_nsfw_concept
 
 
-def run_prompts(prompts, opt, model, batch_size, sampler, start_code, wm_encoder, sample_path, base_count):
+def run_prompts(prompts, opt, model, batch_size, sampler, start_code, wm_encoder, sample_path, base_count, iteration_num):
     uc = None
     if opt.scale != 1.0:
         uc = model.get_learned_conditioning(
@@ -135,7 +135,7 @@ def run_prompts(prompts, opt, model, batch_size, sampler, start_code, wm_encoder
             img = Image.fromarray(
                 x_sample.astype(np.uint8))
             img = put_watermark(img, wm_encoder)
-            img.save(os.path.join(sample_path, f"{base_count:05}.png"))
+            img.save(os.path.join(sample_path, f"{base_count:05}-{iteration_num}.png"))
             base_count += 1
 
     return x_checked_image_torch
@@ -352,7 +352,7 @@ class Txt2Img():
                     for n in trange(self.opt.n_iter, desc="Sampling"):
                         for prompts in tqdm(data, desc="data"):
                             x_checked_image_torch = run_prompts(prompts, self.opt, self.model, num_samples,
-                                                                self.sampler, self.start_code, self.wm_encoder, sample_path, base_count)
+                                                                self.sampler, self.start_code, self.wm_encoder, sample_path, base_count, n)
 
                             if not self.opt.skip_grid:
                                 all_samples.append(x_checked_image_torch)
